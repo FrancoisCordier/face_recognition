@@ -6,7 +6,12 @@ const ImageLinkForm = ({ onInputChange, onButtonSubmit }) => {
     <div>
       <p className="f3">
         {
-          "This web application uses Machine Learning to detect faces in your pictures. Give it a try !"
+          "This web application uses Machine Learning to detect faces in your pictures."
+        }
+      </p>
+      <p className="f3">
+        {
+          "Just copy and paste an image URL from the web and press 'Detect'"
         }
       </p>
       <div className="center">
