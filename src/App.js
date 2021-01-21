@@ -8,11 +8,6 @@ import SignIn from "./components/SignIn/SignIn";
 import Register from "./components/Register/Register";
 import Particles from "react-particles-js";
 import { Component } from "react";
-import Clarifai from "clarifai";
-
-const app = new Clarifai.App({
-  apiKey: "39acbbc653a04a98b3cae723272c952a",
-});
 
 // Paramètres pour l'arrière plan
 const particlesOptions = {
@@ -27,23 +22,25 @@ const particlesOptions = {
   },
 };
 
+const initialState = {
+  input: "",
+  imageUrl: "",
+  box: [],
+  route: "signin",
+  isSignedIn: false,
+  user: {
+    id: "",
+    name: "",
+    email: "",
+    entries: 0,
+    joined: "",
+  },
+};
+
 class App extends Component {
   constructor() {
     super();
-    this.state = {
-      input: "",
-      imageUrl: "",
-      box: {},
-      route: "signin",
-      isSignedIn: false,
-      user: {
-        id: "",
-        name: "",
-        email: "",
-        entries: 0,
-        joined: "",
-      },
-    };
+    this.state = initialState;
   }
 
   loadUser = (data) => {
@@ -66,17 +63,30 @@ class App extends Component {
   - right_col <=> position du troisième point en % de la largeur (le point en bas à droite du visage)
   - bottom_row <=> position du quatrième point en % de la hauteur (le point en bas à gauche du visage) */
   calculateFaceLocation = (data) => {
-    const clarifaiFace =
-      data.outputs[0].data.regions[0].region_info.bounding_box;
+    const clarifaiFace = data.outputs[0].data.regions;
     const image = document.getElementById("inputimage");
     const width = Number(image.width);
     const height = Number(image.height);
-    return {
-      leftCol: clarifaiFace.left_col * width,
-      topRow: clarifaiFace.top_row * height,
-      rightCol: width - clarifaiFace.right_col * width,
-      bottomRow: height - clarifaiFace.bottom_row * height,
-    };
+    const bounding_box = [];
+
+    for (let i = 0; i < clarifaiFace.length; i++) {
+      const leftCol = clarifaiFace[i].region_info.bounding_box.left_col * width;
+      const topRow = clarifaiFace[i].region_info.bounding_box.top_row * height;
+      const rightCol =
+        width - clarifaiFace[i].region_info.bounding_box.right_col * width;
+      const bottomRow =
+        height - clarifaiFace[i].region_info.bounding_box.bottom_row * height;
+
+      const box = {
+        leftCol,
+        topRow,
+        rightCol,
+        bottomRow,
+      };
+
+      bounding_box.push(box);
+    }
+    return bounding_box;
   };
 
   displayFaceBox = (box) => {
@@ -89,8 +99,14 @@ class App extends Component {
 
   onButtonSubmit = () => {
     this.setState({ imageUrl: this.state.input });
-    app.models
-      .predict(Clarifai.FACE_DETECT_MODEL, this.state.input)
+    fetch("http://localhost:3000/imageurl", {
+      method: "post",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: this.state.input,
+      }),
+    })
+      .then((response) => response.json())
       .then((response) => {
         if (response) {
           fetch("http://localhost:3000/image", {
@@ -103,7 +119,8 @@ class App extends Component {
             .then((response) => response.json())
             .then((count) =>
               this.setState(Object.assign(this.state.user, { entries: count }))
-            );
+            )
+            .catch(console.log);
         }
         this.displayFaceBox(this.calculateFaceLocation(response));
       })
@@ -112,7 +129,7 @@ class App extends Component {
 
   onRouteChange = (route) => {
     if (route === "signout") {
-      this.setState({ isSignedIn: false });
+      this.setState(initialState);
     } else if (route === "home") {
       this.setState({ isSignedIn: true });
     }
